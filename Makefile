@@ -1,8 +1,8 @@
 HEIF_LIB=nokiatech-heif
 
 CXXFLAGS = -O2 -std=c++11 -W -Wall
-CXXFLAGS += -I$(HEIF_LIB)/Srcs/common -I$(HEIF_LIB)/Srcs/reader
-LDFLAGS = -L$(HEIF_LIB)/build/Srcs/common -L$(HEIF_LIB)/build/Srcs/parser/avcparser -L$(HEIF_LIB)/build/Srcs/parser/h265parser -L$(HEIF_LIB)/build/Srcs/reader -lcommon -lavcparser -l h265parser -lheifreader
+CXXFLAGS += -I$(HEIF_LIB)/srcs/api/common -I$(HEIF_LIB)/srcs/api/reader
+LDFLAGS = -L$(HEIF_LIB)/build/srcs/common -L$(HEIF_LIB)/srcs/api/common -L$(HEIF_LIB)/srcs/api/reader -L$(HEIF_LIB)/build/srcs/parser/avcparser -L$(HEIF_LIB)/build/srcs/parser/h265parser -L$(HEIF_LIB)/build/srcs/reader -lcommon -lavcparser -lh265parser -lheifreader
 
 all: heic2hevc
 
