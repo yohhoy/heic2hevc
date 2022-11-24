@@ -15,6 +15,6 @@ heif-lib:
 	@if [ ! -d $(HEIF_LIB)/build ]; then \
 		mkdir -p $(HEIF_LIB)/build; \
 		fi
-	cd $(HEIF_LIB)/build && cmake .. && make
+	cd $(HEIF_LIB)/build && cmake ../srcs && make
 
 .PHONY: heif-lib
