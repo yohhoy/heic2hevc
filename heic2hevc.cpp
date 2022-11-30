@@ -5,8 +5,60 @@
  * depends https://github.com/nokiatech/heif
  */
 #include <iostream>
+#include <algorithm>
+#include <fstream>
+#include <map>
+
+using namespace std;
+//using namespace HEIF;
+
 //#include "hevcimagefilereader.hpp"
 #include "heifreader.h" //Reader API is located here: https://github.com/nokiatech/heif/tree/master/srcs/api/reader in source tree
+#include "heifwriter.h"
+/*
+-l library
+           Search the library named library when linking.  (The second
+           alternative with the library as a separate argument is only
+           for POSIX compliance and is not recommended.)
+
+           The -l option is passed directly to the linker by GCC.  Refer
+           to your linker documentation for exact details.  The general
+           description below applies to the GNU linker.
+
+           The linker searches a standard list of directories for the
+           library.  The directories searched include several standard
+           system directories plus any that you specify with -L.
+
+           Static libraries are archives of object files, and have file
+           names like liblibrary.a.  Some targets also support shared
+           libraries, which typically have names like liblibrary.so.  If
+           both static and shared libraries are found, the linker gives
+           preference to linking with the shared library unless the
+           -static option is used.
+
+           It makes a difference where in the command you write this
+           option; the linker searches and processes libraries and
+           object files in the order they are specified.  Thus, foo.o
+           -lz bar.o searches library z after file foo.o but before
+           bar.o.  If bar.o refers to functions in z, those functions
+           may not be loaded.
+
+
+Options for Directory Search
+       These options specify directories to search for header files, for
+       libraries and for parts of the compiler:
+
+
+
+
+-Ldir
+           Add directory dir to the list of directories to be searched
+           for -l.
+ */
+
+
+
+
 
 /*
 int extract(const char* srcfile, const char* dstfile)
@@ -43,21 +95,21 @@ int extract(const char* srcfile, const char* dstfile)
 */
 //Access and read a cover image
 void example1(){
-    auto* reader = Reader::Create();
+    auto* reader = HEIF::Reader::Create();
     // Input file available from https://github.com/nokiatech/heif_conformance
     reader->initialize("C003.heic");
 
-    FileInformation info;
+    HEIF::FileInformation info;
     reader->getFileInformation(info);
 
     // Find the item ID
-    ImageId itemId;
+    HEIF::ImageId itemId;
     reader->getPrimaryItem(itemId);
 
     uint64_t memoryBufferSize = 1024 * 1024;
-    char* memoryBuffer        = new char[memoryBufferSize];
+    uint8_t* memoryBuffer        = new uint8_t[memoryBufferSize];
     reader->getItemDataWithDecoderParameters(itemId, memoryBuffer, memoryBufferSize);
-
+    /*
     // Feed 'data' to decoder and display the cover image...
     std::ofstream ofs(dstfile, std::ios::binary);
     for (const auto& key : {"VPS", "SPS", "PPS"}) {
@@ -67,15 +119,15 @@ void example1(){
     }
     std::cout << "bitstream=" << bitstream.size() << std::endl;
     ofs.write((const char *)bitstream.data(), bitstream.size());
-
+*/
     delete[] memoryBuffer;
-    Reader::Destroy(reader);
+    HEIF::Reader::Destroy(reader);
 }
-
+/*
 //Access and read image item and its thumbnail
 void example2()
 {
-    Array<ImageId> itemIds;
+    Array<HEIF::ImageId> itemIds;
     uint64_t itemSize = 1024 * 1024;
     char* itemData    = new char[itemSize];
 
@@ -363,16 +415,22 @@ void example8()
 
     Reader::Destroy(reader);
 }
+ */
+ /*
 int main(int argc, char* argv[])
 {
-    /*
+
     if (argc < 3) {
         std::cout
             << "Usage: heic2hevc <input.heic> <output.265>" << std::endl;
         return 0;
     }
     return extract(argv[1], argv[2]);
-     */
+
+}
+*/
+int main()
+{
 
     example1();
     return 0;
