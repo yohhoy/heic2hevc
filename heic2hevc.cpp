@@ -132,16 +132,18 @@ void exportImageItemsAndThumbnails(const char *srcfile, const char *dstfile) {
             imageMap[masterId] = thumbId->get();
         }
     }
-
+    int count=0;
     for(const auto masterId:itemIds){
         uint64_t memoryBufferSize = 1024 * 1024;
         uint8_t *memoryBuffer = new uint8_t[memoryBufferSize];
         reader->getItemDataWithDecoderParameters(masterId, memoryBuffer, memoryBufferSize);
-        dstfile="pippo.265";
-        std::ofstream ofs(dstfile, std::ios::binary);
+        string dstfileString=dstfile;
+        dstfileString.append(".master_"+count);
+        std::ofstream ofs(dstfileString.c_str(), std::ios::binary);
 
         std::cout << "bitstream=" << memoryBufferSize << std::endl;
         ofs.write((const char *) memoryBuffer, memoryBufferSize);
+        count++;
     }
     // We have now item IDs of thumbnails and master images. Decode and show them from imageMap as wanted.
 
