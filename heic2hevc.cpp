@@ -11,10 +11,11 @@
 
 using namespace std;
 //using namespace HEIF;
-
 //#include "hevcimagefilereader.hpp"
 #include "heifreader.h" //Reader API is located here: https://github.com/nokiatech/heif/tree/master/srcs/api/reader in source tree
 #include "heifwriter.h"
+
+void printInfo(const char* file);
 /*
 -l library
            Search the library named library when linking.  (The second
@@ -105,7 +106,7 @@ void example1(){
     // Find the item ID
     HEIF::ImageId itemId;
     reader->getPrimaryItem(itemId);
-
+    std::cout << "static constructor\n";
     uint64_t memoryBufferSize = 1024 * 1024;
     uint8_t* memoryBuffer        = new uint8_t[memoryBufferSize];
     reader->getItemDataWithDecoderParameters(itemId, memoryBuffer, memoryBufferSize);
@@ -124,36 +125,39 @@ void example1(){
     HEIF::Reader::Destroy(reader);
 }
 /*
-//Access and read image item and its thumbnail
+/// Access and read image item and its thumbnail
 void example2()
 {
-    Array<HEIF::ImageId> itemIds;
-    uint64_t itemSize = 1024 * 1024;
-    char* itemData    = new char[itemSize];
-
     auto* reader = Reader::Create();
 
     // Input file available from https://github.com/nokiatech/heif_conformance
-    reader->initialize("C012.heic");
+    const char* filename = "C012.heic";
+    if (reader->initialize(filename) != ErrorCode::OK)
+    {
+        printInfo(filename);
+        Reader::Destroy(reader);
+        return;
+    }
+
     FileInformation info;
     if (reader->getFileInformation(info) != ErrorCode::OK)
     {
         // handle error here...
-        delete[] itemData;
         return;
     }
 
     // Verify that the file has one or several images in the MetaBox
-    if (!(info.features & FileFeatureEnum::HasSingleImage ||
-          info.features & FileFeatureEnum::HasImageCollection))
+    if (!(info.features & FileFeatureEnum::HasSingleImage || info.features & FileFeatureEnum::HasImageCollection))
     {
-        delete[] itemData;
         return;
     }
 
     // Find the item ID of the first master image
+    Array<ImageId> itemIds;
     reader->getMasterImages(itemIds);
     const ImageId masterId = itemIds[0];
+    uint64_t itemSize      = 1024 * 1024;
+    auto* itemData         = new uint8_t[itemSize];
 
     const auto metaBoxFeatures = info.rootMetaBoxInformation.features;  // For convenience
     if (metaBoxFeatures & MetaBoxFeatureEnum::HasThumbnails)
@@ -161,6 +165,7 @@ void example2()
         // Thumbnail references ('thmb') are from the thumbnail image to the master image
         reader->getReferencedToItemListByType(masterId, "thmb", itemIds);
         const auto thumbnailId = itemIds[0];
+
 
         if (reader->getItemDataWithDecoderParameters(thumbnailId.get(), itemData, itemSize) == ErrorCode::OK)
         {
@@ -180,7 +185,7 @@ void example2()
     delete[] itemData;
 }
 
-//Access and read image items and their thumbnails in a collection
+/// Access and read image items and their thumbnails in a collection
 void example3()
 {
     auto* reader = Reader::Create();
@@ -190,43 +195,60 @@ void example3()
     map<MasterItemId, ThumbnailItemId> imageMap;
 
     // Input file available from https://github.com/nokiatech/heif_conformance
-    reader->initialize("C012.heic");
+    const char* filename = "C012.heic";
+    if (reader->initialize(filename) != ErrorCode::OK)
+    {
+        printInfo(filename);
+        Reader::Destroy(reader);
+        return;
+    }
+
     FileInformation info;
     reader->getFileInformation(info);
 
     // Find item IDs of master images
     reader->getMasterImages(itemIds);
 
-    // Find thumbnails for each master. There can be several thumbnails for one master image, get narrowest ones here.
+    // Find thumbnails for each master. There can be several thumbnails for one master image, get narrowest ones
+    // here.
     for (const auto masterId : itemIds)
     {
         // Thumbnail references ('thmb') are from the thumbnail image to the master image
         Array<ImageId> thumbIds;
         reader->getReferencedToItemListByType(masterId, "thmb", thumbIds);
 
-        const ImageId thumbId = *std::min_element(thumbIds.begin(), thumbIds.end(),
-                                                  [&](ImageId a, ImageId b) {
-                                                      uint32_t widthA, widthB;
-                                                      reader->getWidth(a, widthA);
-                                                      reader->getWidth(b, widthB);
-                                                      return (widthA < widthB);
-                                                  });
-        imageMap[masterId]    = thumbId;
+        const auto thumbId = std::min_element(thumbIds.begin(), thumbIds.end(), [&](ImageId a, ImageId b) {
+            uint32_t widthA, widthB;
+            reader->getWidth(a, widthA);
+            reader->getWidth(b, widthB);
+            return (widthA < widthB);
+        });
+        if (thumbId != thumbIds.end())  // For images without thumbnail thumbId equals to end()
+        {
+            imageMap[masterId] = thumbId->get();
+        }
     }
 
     // We have now item IDs of thumbnails and master images. Decode and show them from imageMap as wanted.
     Reader::Destroy(reader);
 }
-
-//Access and read derived image
+*/
+/// Access and read derived images
 void example4()
 {
-    auto* reader = Reader::Create();
-    Array<ImageId> itemIds;
+    auto* reader = HEIF::Reader::Create();
+    HEIF::Array<HEIF::ImageId> itemIds;
 
     // Input file available from https://github.com/nokiatech/heif_conformance
-    reader->initialize("C008.heic");
-    FileInformation info;
+    const char* filename = "C008.heic";
+    if (reader->initialize(filename) != HEIF::ErrorCode::OK)
+    {
+        printInfo(filename);
+        HEIF::Reader::Destroy(reader);
+        return;
+    }
+
+    HEIF::FileInformation info;
     reader->getFileInformation(info);
 
     // Find item IDs of 'iden' (identity transformation) type derived images
@@ -235,43 +257,49 @@ void example4()
     const auto itemId = itemIds[0];  // For demo purposes, assume there was one 'iden' item
 
     // 'dimg' item reference points from the 'iden' derived item to the input(s) of the derivation
-    Array<ImageId> referencedImages;
+    HEIF::Array<HEIF::ImageId> referencedImages;
     reader->getReferencedFromItemListByType(itemId, "dimg", referencedImages);
-    const ImageId sourceItemId = referencedImages[0];  // For demo purposes, assume there was one
+    const HEIF::ImageId sourceItemId = referencedImages[0];  // For demo purposes, assume there was one
 
     // Get 'iden' item properties to find out what kind of derivation it is
-    Array<ItemPropertyInfo> propertyInfos;
+    HEIF::Array<HEIF::ItemPropertyInfo> propertyInfos;
     reader->getItemProperties(itemId, propertyInfos);
 
     unsigned int rotation = 0;
     for (const auto& property : propertyInfos)
     {
         // For example, handle 'irot' transformational property is anti-clockwise rotation
-        if (property.type == ItemPropertyType::IROT)
+        if (property.type == HEIF::ItemPropertyType::IROT)
         {
             // Get property struct by index to access rotation angle
-            Rotate irot;
+            HEIF::Rotate irot;
             reader->getProperty(property.index, irot);
             rotation = irot.angle;
             break;  // Assume only one property
         }
     }
 
-    cout << "To render derived image item ID " << itemId << ":" << endl;
-    cout << "-retrieve data for source image item ID " << sourceItemId << endl;
+    cout << "To render derived image item ID " << itemId.get() << ":" << endl;
+    cout << "-retrieve data for source image item ID " << sourceItemId.get() << endl;
     cout << "-rotating image " << rotation << " degrees." << endl;
 
-    Reader::Destroy(reader);
+    HEIF::Reader::Destroy(reader);
 }
-
-//Access and read media track samples, thumbnail track samples and timestamps
+/*
+/// Access and read media track samples, thumbnail track samples and timestamps
 void example5()
 {
     auto* reader = Reader::Create();
     Array<uint32_t> itemIds;
 
     // Input file available from https://github.com/nokiatech/heif_conformance
-    reader->initialize("C032.heic");
+    const char* filename = "C032.heic";
+    if (reader->initialize(filename) != ErrorCode::OK)
+    {
+        printInfo(filename);
+        Reader::Destroy(reader);
+        return;
+    }
     FileInformation info;
     reader->getFileInformation(info);
 
@@ -279,7 +307,7 @@ void example5()
     for (const auto& trackProperties : info.trackInformation)
     {
         const auto sequenceId = trackProperties.trackId;
-        cout << "Track ID " << sequenceId << endl;  // Context ID corresponds to the track ID
+        cout << "Track ID " << sequenceId.get() << endl;  // Context ID corresponds to the track ID
 
         if (trackProperties.features & TrackFeatureEnum::IsMasterImageSequence)
         {
@@ -288,13 +316,14 @@ void example5()
 
         if (trackProperties.features & TrackFeatureEnum::IsThumbnailImageSequence)
         {
-            // Assume there is only one type track reference, so check reference type and master track ID(s) from the first one.
+            // Assume there is only one type track reference, so check reference type and master track ID(s) from
+            // the first one.
             const auto tref = trackProperties.referenceTrackIds[0];
             cout << "Track reference type is '" << tref.type.value << "'" << endl;
             cout << "This is a thumbnail track for track ID ";
             for (const auto masterTrackId : tref.trackIds)
             {
-                cout << masterTrackId << endl;
+                cout << masterTrackId.get() << endl;
             }
         }
 
@@ -303,7 +332,7 @@ void example5()
         cout << "Sample timestamps:" << endl;
         for (const auto& timestamp : timestamps)
         {
-            cout << " Timestamp=" << timestamp.timeStamp << "ms, sample ID=" << timestamp.itemId << endl;
+            cout << " Timestamp=" << timestamp.timeStamp << "ms, sample ID=" << timestamp.itemId.get() << endl;
         }
 
         for (const auto& sampleProperties : trackProperties.sampleProperties)
@@ -315,7 +344,7 @@ void example5()
             for (auto dependencyId : itemsToDecode)
             {
                 uint64_t size    = 1024 * 1024;
-                char* sampleData = new char[size];
+                auto* sampleData = new uint8_t[size];
                 reader->getItemDataWithDecoderParameters(sequenceId, dependencyId, sampleData, size);
 
                 // Feed data to decoder...
@@ -325,16 +354,25 @@ void example5()
             // Store or show the image...
         }
     }
+
     Reader::Destroy(reader);
 }
-//Access and read media alternative
+
+/// Access and read media alternative
 void example6()
 {
     auto* reader = Reader::Create();
     Array<uint32_t> itemIds;
 
     // Input file available from https://github.com/nokiatech/heif_conformance
-    reader->initialize("C032.heic");
+    const char* filename = "C032.heic";
+    if (reader->initialize(filename) != ErrorCode::OK)
+    {
+        printInfo(filename);
+        Reader::Destroy(reader);
+        return;
+    }
+
     FileInformation info;
     reader->getFileInformation(info);
 
@@ -363,15 +401,152 @@ void example6()
     Reader::Destroy(reader);
 }
 
-//Read Exif metadata
+// Example about reading file and writing it to output. Note most error checking omitted.
+void example7()
+{
+    // create reader and writer instances
+    auto* reader = Reader::Create();
+    auto* writer = Writer::Create();
+
+    // partially configure writer output
+    OutputConfig writerOutputConf{};
+    writerOutputConf.fileName        = "example7_output.heic";
+    writerOutputConf.progressiveFile = true;
+
+    // Input file available from https://github.com/nokiatech/heif_conformance
+    const char* filename = "C014.heic";
+    if (reader->initialize(filename) != ErrorCode::OK)
+    {
+        printInfo(filename);
+        Reader::Destroy(reader);
+        Writer::Destroy(writer);
+        return;
+    }
+    // read major brand of file and store it to writer config.
+    FourCC inputMajorBrand{};
+    reader->getMajorBrand(inputMajorBrand);
+
+    // add major brand to writer config
+    writerOutputConf.majorBrand = inputMajorBrand;
+
+    // read compatible brands of file and store it to writer config.
+    Array<FourCC> inputCompatibleBrands{};
+    reader->getCompatibleBrands(inputCompatibleBrands);
+
+    // add compatible brands to writer config
+    writerOutputConf.compatibleBrands = inputCompatibleBrands;
+
+    // initialize writer now that we have all the needed information from reader
+    if (writer->initialize(writerOutputConf) != ErrorCode::OK)
+    {
+        return;
+    }
+    // get information about all input file content
+    FileInformation fileInfo{};
+    reader->getFileInformation(fileInfo);
+
+    // map which input decoder config id matches the writer output decoder config ids
+    map<DecoderConfigId, DecoderConfigId> inputToOutputDecoderConfigIds;
+
+    // Image Rotation property as an example of Image Properties:
+    map<PropertyId, Rotate> imageRotationProperties;
+
+    // map which input image property maach the writer output property.
+    map<PropertyId, PropertyId> inputToOutputImageProperties;
+
+    // go through all items in input file and store master image decoder configs
+    for (const auto& image : fileInfo.rootMetaBoxInformation.itemInformations)
+    {
+        if (image.features & ItemFeatureEnum::IsMasterImage)
+        {
+            // read image decoder config and store its id if not seen before
+            DecoderConfiguration inputdecoderConfig{};
+            reader->getDecoderParameterSets(image.itemId, inputdecoderConfig);
+            if (!inputToOutputDecoderConfigIds.count(inputdecoderConfig.decoderConfigId))
+            {
+                // feed new decoder config to writer and store input to output id pairing information
+                DecoderConfigId outputDecoderConfigId;
+                writer->feedDecoderConfig(inputdecoderConfig.decoderSpecificInfo, outputDecoderConfigId);
+                inputToOutputDecoderConfigIds[inputdecoderConfig.decoderConfigId] = outputDecoderConfigId;
+            }
+
+            // read image data
+            Data imageData{};
+            imageData.size = image.size;
+            imageData.data = new uint8_t[imageData.size];
+            reader->getItemData(image.itemId, imageData.data, imageData.size, false);
+
+            // feed image data to writer
+            imageData.mediaFormat     = MediaFormat::HEVC;
+            imageData.decoderConfigId = inputToOutputDecoderConfigIds.at(inputdecoderConfig.decoderConfigId);
+            MediaDataId outputMediaId;
+            writer->feedMediaData(imageData, outputMediaId);
+            delete[] imageData.data;
+
+            // create new image based on that data:
+            ImageId outputImageId;
+            writer->addImage(outputMediaId, outputImageId);
+
+            // if this input image was the primary image -> also mark output image as primary image
+            if (image.features & ItemFeatureEnum::IsPrimaryImage)
+            {
+                writer->setPrimaryItem(outputImageId);
+            }
+
+            // copy other properties over
+            Array<ItemPropertyInfo> imageProperties;
+            reader->getItemProperties(image.itemId, imageProperties);
+
+            for (const auto& imageProperty : imageProperties)
+            {
+                switch (imageProperty.type)
+                {
+                    case ItemPropertyType::IROT:
+                    {
+                        if (!imageRotationProperties.count(imageProperty.index))
+                        {
+                            // if we haven't yet read this property for other image -> do so and add it to writer as
+                            // well
+                            Rotate rotateInfo{};
+                            reader->getProperty(imageProperty.index, rotateInfo);
+                            imageRotationProperties[imageProperty.index] = rotateInfo;
+
+                            // create new property for images in writer
+                            writer->addProperty(rotateInfo, inputToOutputImageProperties[imageProperty.index]);
+                        }
+                        // associate property with this output image
+                        writer->associateProperty(image.itemId, inputToOutputImageProperties.at(imageProperty.index),
+                                                  imageProperty.essential);
+                        break;
+                    }
+                        //
+                        // ... other properties
+                        //
+                    default:
+                        break;
+                }
+            }
+        }
+    }
+
+    writer->finalize();
+
+    Reader::Destroy(reader);
+    Writer::Destroy(writer);
+}
+
+/// Read Exif metadata. Note that most error checking is omitted.
 void example8()
 {
     auto* reader = Reader::Create();
 
     // Try opening a file with an "Exif" item.
     // The file is available from https://github.com/nokiatech/heif_conformance
-    if (reader->initialize("C034.heic") != ErrorCode::OK)
+    const char* filename = "C034.heic";
+    if (reader->initialize(filename) != ErrorCode::OK)
     {
+        printInfo(filename);
+        Reader::Destroy(reader);
         return;
     }
 
@@ -395,27 +570,38 @@ void example8()
         return;
     }
 
-    // Get item size from parsed information. For simplicity, assume it is the first and only non-image item in the file.
-    if (fileInfo.rootMetaBoxInformation.itemInformations[0].itemId != exifItemId)
+    // Get item size from parsed information.
+    const auto it = std::find_if(fileInfo.rootMetaBoxInformation.itemInformations.begin(),
+                                 fileInfo.rootMetaBoxInformation.itemInformations.end(),
+                                 [exifItemId](ItemInformation a) { return a.itemId == exifItemId; });
+    if (it == fileInfo.rootMetaBoxInformation.itemInformations.end())
     {
+        Reader::Destroy(reader);
         return;
     }
-    auto itemSize = fileInfo.rootMetaBoxInformation.itemInformations[0].size;
+    auto itemSize = it->size;
 
     // Request item data.
-    char* memoryBuffer = new char[itemSize];
+    auto* memoryBuffer = new uint8_t[itemSize];
     reader->getItemData(metadataIds[0], memoryBuffer, itemSize);
 
     // Write Exif item data to a file.
-    // Note this data does not contain Exif payload only. The payload is preceded by 4-byte exif_tiff_header_offset field
-    // as defined by class ExifDataBlock() in ISO/IEC 23008-12:2017.
+    // Note this data does not contain Exif payload only. The payload is preceded by 4-byte exif_tiff_header_offset
+    // field as defined by class ExifDataBlock() in ISO/IEC 23008-12:2017.
     ofstream file("exifdata.bin", ios::out | ios::binary);
-    file.write(memoryBuffer, static_cast<std::streamsize>(itemSize));
+    file.write(reinterpret_cast<char*>(memoryBuffer), static_cast<std::streamsize>(itemSize));
     delete[] memoryBuffer;
 
     Reader::Destroy(reader);
 }
- */
+*/
+void printInfo(const char* filename)
+{
+    cout << "Can't find input file: " << filename << ". "
+         << "Please download it from https://github.com/nokiatech/heif_conformance "
+         << "and place it in same directory with the executable." << endl;
+}
+
  /*
 int main(int argc, char* argv[])
 {
@@ -431,7 +617,7 @@ int main(int argc, char* argv[])
 */
 int main()
 {
-
+    example4();
     example1();
     return 0;
 }
