@@ -52,8 +52,7 @@ void example1(const char* srcfile){
     uint8_t* memoryBuffer        = new uint8_t[memoryBufferSize];
     reader->getItemDataWithDecoderParameters(itemId, memoryBuffer, memoryBufferSize);
 
-
-
+    // free space
     delete[] memoryBuffer;
     HEIF::Reader::Destroy(reader);
 }

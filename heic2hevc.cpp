@@ -15,6 +15,14 @@ using namespace std;
 //#include "hevcimagefilereader.hpp"
 #include "heifreader.h" //Reader API is located here: https://github.com/nokiatech/heif/tree/master/srcs/api/reader in source tree
 #include "heifwriter.h"
+void printError(const char *filename);
+int exportMasterImagesFiles(const char *srcfile, const char *dstfile);
+int exportCoverImage(const char *srcfile, const char *dstfile);
+int exportExif(const char *filename, const char *dstfile);
+
+void printError(const char *message){
+    std::cout << message << std::endl;
+}
 
 
 int exportExif(const char *filename, const char *dstfile) {
@@ -23,6 +31,7 @@ int exportExif(const char *filename, const char *dstfile) {
     // Try opening a file with an "Exif" item.
     if (reader->initialize(filename) != HEIF::ErrorCode::OK) {
         HEIF::Reader::Destroy(reader);
+        printError("I can't File");
         return -1;
     }
 
@@ -73,9 +82,14 @@ int exportExif(const char *filename, const char *dstfile) {
     return 0;
 }
 
-void exportCoverImage(const char *srcfile, const char *dstfile) {
+int exportCoverImage(const char *srcfile, const char *dstfile) {
     auto *reader = HEIF::Reader::Create();
-    reader->initialize(srcfile);
+
+    if (reader->initialize(srcfile) != HEIF::ErrorCode::OK) {
+        HEIF::Reader::Destroy(reader);
+        printError("I can't File");
+        return -1;
+    }
 
     HEIF::FileInformation info;
     reader->getFileInformation(info);
@@ -88,15 +102,19 @@ void exportCoverImage(const char *srcfile, const char *dstfile) {
     uint8_t *memoryBuffer = new uint8_t[memoryBufferSize];
     reader->getItemDataWithDecoderParameters(itemId, memoryBuffer, memoryBufferSize);
 
-    std::ofstream ofs(dstfile, std::ios::binary);
+    string dstFileCover = dstfile;
+    //std::size_t dotpos = dstFileCover.find(".");
+    //dstFileCover= dstFileCover.substr (0, dotpos) + "_cover" + dstFileCover.substr (dotpos);
+    std::ofstream ofs(dstFileCover, std::ios::binary);
 
-    std::cout << "bitstream=" << memoryBufferSize << std::endl;
+    std::cout << "cover image extracted, bitstream=" << memoryBufferSize <<", file="<<dstFileCover <<std::endl;
     ofs.write((const char *) memoryBuffer, memoryBufferSize);
     delete[] memoryBuffer;
     HEIF::Reader::Destroy(reader);
+    return 0;
 }
 
-void exportImageItemsAndThumbnails(const char *srcfile, const char *dstfile) {
+int exportMasterImagesFiles(const char *srcfile, const char *dstfile) {
     auto *reader = HEIF::Reader::Create();
     typedef HEIF::ImageId MasterItemId;
     typedef HEIF::ImageId ThumbnailItemId;
@@ -105,7 +123,8 @@ void exportImageItemsAndThumbnails(const char *srcfile, const char *dstfile) {
 
     if (reader->initialize(srcfile) != HEIF::ErrorCode::OK) {
         HEIF::Reader::Destroy(reader);
-        return;
+        printError("I can't File");
+        return -1;
     }
 
     HEIF::FileInformation info;
@@ -132,35 +151,45 @@ void exportImageItemsAndThumbnails(const char *srcfile, const char *dstfile) {
             imageMap[masterId] = thumbId->get();
         }
     }
-    int count=0;
+    int count=1;
     for(const auto masterId:itemIds){
         uint64_t memoryBufferSize = 1024 * 1024;
         uint8_t *memoryBuffer = new uint8_t[memoryBufferSize];
         reader->getItemDataWithDecoderParameters(masterId, memoryBuffer, memoryBufferSize);
-        string dstfileString=dstfile;
-        dstfileString.append(".master_"+count);
-        std::ofstream ofs(dstfileString.c_str(), std::ios::binary);
 
-        std::cout << "bitstream=" << memoryBufferSize << std::endl;
+        string dstfileMaster=dstfile;
+        std::size_t dotpos = dstfileMaster.find(".");
+        dstfileMaster= dstfileMaster.substr (0, dotpos) + "_master" +to_string(count)+ dstfileMaster.substr (dotpos);
+        std::ofstream ofs(dstfileMaster, std::ios::binary);
+
+        std::cout <<"master_"<<count<< " extracted, bitstream=" << memoryBufferSize << ", file="<<dstfileMaster<<std::endl;
         ofs.write((const char *) memoryBuffer, memoryBufferSize);
         count++;
     }
     // We have now item IDs of thumbnails and master images. Decode and show them from imageMap as wanted.
 
     HEIF::Reader::Destroy(reader);
+    return 0;
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 2) {
+
+    if (argc < 3) {
         std::cout
-                << "Usage: heic2hevc <input.heic> <output.265>" << std::endl;
+                << "Usage: ./heic2hevc <input.heic> <output.265>" << std::endl;
         return 0;
     }
-    string dstFile_exif = argv[2];
-    dstFile_exif = dstFile_exif.find('.') + "_exifdata.bin";
-    exportExif(argv[1], dstFile_exif.c_str());
+    std::cout<<"The program will export:"<< std::endl;
+    std::cout<<"* Exif file <output_exif.265>"<< std::endl;
+    std::cout<<"* Cover image <output.265>"<< std::endl;
+    std::cout<<"* Master images <output_master<n>.265>"<< std::endl;
+    string dstFileExif = argv[2];
+
+    std::size_t dotpos = dstFileExif.find(".");
+    dstFileExif= dstFileExif.substr (0, dotpos) + "_exif" + dstFileExif.substr (dotpos);
+    exportExif(argv[1], dstFileExif.c_str());
     exportCoverImage(argv[1], argv[2]);
-    exportImageItemsAndThumbnails(argv[1], argv[2]);
+    exportMasterImagesFiles(argv[1], argv[2]);
     return 0;
 }
 
