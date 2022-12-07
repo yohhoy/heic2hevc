@@ -31,7 +31,7 @@ int exportExif(const char *filename, const char *dstfile) {
     // Try opening a file with an "Exif" item.
     if (reader->initialize(filename) != HEIF::ErrorCode::OK) {
         HEIF::Reader::Destroy(reader);
-        printError("I can't File");
+        printError("I can't find the File");
         return -1;
     }
 
@@ -87,7 +87,7 @@ int exportCoverImage(const char *srcfile, const char *dstfile) {
 
     if (reader->initialize(srcfile) != HEIF::ErrorCode::OK) {
         HEIF::Reader::Destroy(reader);
-        printError("I can't File");
+        printError("I can't find the File");
         return -1;
     }
 
@@ -98,7 +98,12 @@ int exportCoverImage(const char *srcfile, const char *dstfile) {
     HEIF::ImageId itemId;
     reader->getPrimaryItem(itemId);
     std::cout << "static constructor\n";
-    uint64_t memoryBufferSize = 1024 * 1024;
+    /*
+    ImageFileReaderInterface::DataVector data;
+    reader.getItemDataWithDecoderParameters(contextId, itemId, data);
+    */
+
+    uint64_t memoryBufferSize = 1024 * 1024*60;
     uint8_t *memoryBuffer = new uint8_t[memoryBufferSize];
     reader->getItemDataWithDecoderParameters(itemId, memoryBuffer, memoryBufferSize);
 
@@ -123,7 +128,7 @@ int exportMasterImagesFiles(const char *srcfile, const char *dstfile) {
 
     if (reader->initialize(srcfile) != HEIF::ErrorCode::OK) {
         HEIF::Reader::Destroy(reader);
-        printError("I can't File");
+        printError("I can't find the File");
         return -1;
     }
 
@@ -153,7 +158,7 @@ int exportMasterImagesFiles(const char *srcfile, const char *dstfile) {
     }
     int count=1;
     for(const auto masterId:itemIds){
-        uint64_t memoryBufferSize = 1024 * 1024;
+        uint64_t memoryBufferSize = 1024 * 1024*20;
         uint8_t *memoryBuffer = new uint8_t[memoryBufferSize];
         reader->getItemDataWithDecoderParameters(masterId, memoryBuffer, memoryBufferSize);
 
@@ -188,8 +193,25 @@ int main(int argc, char *argv[]) {
     std::size_t dotpos = dstFileExif.find(".");
     dstFileExif= dstFileExif.substr (0, dotpos) + "_exif" + dstFileExif.substr (dotpos);
     exportExif(argv[1], dstFileExif.c_str());
-    exportCoverImage(argv[1], argv[2]);
-    exportMasterImagesFiles(argv[1], argv[2]);
+
+    auto *reader = HEIF::Reader::Create();
+    HEIF::FileInformation info;
+
+    if (reader->initialize(argv[1]) != HEIF::ErrorCode::OK) {
+        HEIF::Reader::Destroy(reader);
+        printError("I can't find the File");
+        return -1;
+    }
+
+    // Verify that the file has one or several images in the MetaBox
+    if (info.features & HEIF::FileFeatureEnum::HasSingleImage )
+    {
+        exportCoverImage(argv[1], argv[2]);
+    }else{ //|| info.features & HEIF::FileFeatureEnum::HasImageCollection)
+        exportMasterImagesFiles(argv[1], argv[2]);
+    }
+
+
     return 0;
 }
 
